@@ -21,6 +21,8 @@ npm run build      # 타입 검사 + dist/ 빌드
 | Build Command | `npm ci && npm run build` |
 | Publish Directory | `dist` |
 
+**Web Service로 만들었다면**: Build Command `npm ci && npm run build`, Start Command `npm start` (의존성 없는 `server.mjs`가 `dist/`를 서빙).
+
 `render.yaml`(Blueprint)에 같은 설정과 캐시 헤더가 들어 있습니다. `main` 브랜치에 푸시하면 Render가 다시 빌드합니다.
 빌드할 때 `dist/version.json`이 만들어지고(커밋 해시 포함), 열려 있는 앱이 이를 확인해 **새 버전 배포 알림**을 띄웁니다.
 `vite.config.ts`의 `base: './'` 덕분에 GitHub Pages 같은 하위 경로 배포에서도 그대로 동작합니다.
