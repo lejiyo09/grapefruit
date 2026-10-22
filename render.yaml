@@ -1,0 +1,26 @@
+# Render Blueprint — 정적 사이트(Static Site)로 배포
+# 대시보드에서 직접 만든 서비스라면 아래 Build Command / Publish Directory 값을 같은 값으로 맞추면 된다.
+services:
+  - type: web
+    name: grapefruit
+    runtime: static
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./dist
+    headers:
+      # 업데이트 감지와 오프라인 캐시가 제대로 동작하려면 이 세 파일은 항상 새로 받아야 한다
+      - path: /index.html
+        name: Cache-Control
+        value: no-cache
+      - path: /version.json
+        name: Cache-Control
+        value: no-cache
+      - path: /sw.js
+        name: Cache-Control
+        value: no-cache
+      # 해시가 붙은 빌드 산출물은 오래 캐시
+      - path: /assets/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff

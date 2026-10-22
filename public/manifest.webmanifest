@@ -1,0 +1,9 @@
+{
+  "name": "Grapefruit — 시각적 데이터 분석",
+  "short_name": "Grapefruit",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#1b1c21",
+  "theme_color": "#1b1c21",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}
