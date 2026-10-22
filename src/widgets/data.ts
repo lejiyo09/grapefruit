@@ -11,6 +11,7 @@ import { box, combo, note, radio, button, checkbox, varBadge, emptyMain } from '
 import { renderDataTable, columnsSummary } from '../ui/datatable';
 import { discreteColor } from '../ui/plot';
 import * as db from '../storage/db';
+import { googleSheetCsvUrls, looksLikeHtml, NOT_DATA_MESSAGE, SHEET_ACCESS_MESSAGE } from '../core/remote';
 import { waiting, tableInput } from './common';
 
 export interface BuiltinDataset { file: string; title: string; description: string; rows: number; features: number; target: string }
@@ -26,20 +27,40 @@ export const BUILTIN_DATASETS: BuiltinDataset[] = [
 
 const textCache = new Map<string, string>();
 
-async function fetchText(url: string, signal: AbortSignal): Promise<string> {
-  const cached = textCache.get(url);
+/** cache=true는 바뀌지 않는 기본 데이터셋에만 사용한다(외부 URL·구글 시트는 다시 실행할 때마다 새로 받음) */
+async function fetchText(url: string, signal: AbortSignal, cache = false): Promise<string> {
+  const cached = cache ? textCache.get(url) : undefined;
   if (cached) return cached;
   let res: Response;
   try {
-    res = await fetch(url, { signal });
+    res = await fetch(url, { signal, cache: cache ? 'default' : 'no-store' });
   } catch (e) {
     if (signal.aborted) throw e;
     throw new Error(`파일을 가져올 수 없습니다(네트워크 또는 CORS 문제): ${url}`);
   }
   if (!res.ok) throw new Error(`파일을 가져올 수 없습니다 (HTTP ${res.status}): ${url}`);
   const text = await res.text();
-  if (text.length < 5_000_000) textCache.set(url, text);
+  if (cache && text.length < 5_000_000) textCache.set(url, text);
   return text;
+}
+
+/** 사용자가 넣은 URL에서 표 데이터를 받는다(구글 시트 주소는 CSV 주소로 변환) */
+async function fetchDataUrl(url: string, signal: AbortSignal): Promise<{ text: string; name: string }> {
+  const sheet = googleSheetCsvUrls(url);
+  if (sheet) {
+    for (const candidate of sheet) {
+      try {
+        const text = await fetchText(candidate, signal);
+        if (!looksLikeHtml(text)) return { text, name: 'Google Sheet' };
+      } catch (e) {
+        if (signal.aborted) throw e;
+      }
+    }
+    throw new Error(SHEET_ACCESS_MESSAGE);
+  }
+  const text = await fetchText(url, signal);
+  if (looksLikeHtml(text)) throw new Error(NOT_DATA_MESSAGE);
+  return { text, name: url.split('/').pop()?.replace(/[?#].*$/, '').replace(/\.\w+$/, '') || 'data' };
 }
 
 export function datasetUrl(file: string): string {
@@ -61,11 +82,12 @@ interface FileView { specs: ColumnSpec[]; warnings: string[]; table: Table; sour
 async function loadSourceText(s: FileSettings, ctx: ExecContext): Promise<{ text: string; name: string; label: string }> {
   if (s.source === 'builtin') {
     const ds = BUILTIN_DATASETS.find((d) => d.file === s.dataset) ?? BUILTIN_DATASETS[0];
-    return { text: await fetchText(datasetUrl(ds.file), ctx.signal), name: ds.file, label: `기본 데이터셋: ${ds.title}` };
+    return { text: await fetchText(datasetUrl(ds.file), ctx.signal, true), name: ds.file, label: `기본 데이터셋: ${ds.title}` };
   }
   if (s.source === 'url') {
     if (!s.url) throw new Error('URL을 입력하세요.');
-    return { text: await fetchText(s.url, ctx.signal), name: s.url.split('/').pop()?.replace(/\.\w+$/, '') || 'data', label: s.url };
+    const { text, name } = await fetchDataUrl(s.url, ctx.signal);
+    return { text, name, label: s.url };
   }
   if (!s.fileKey) throw new Error('파일을 선택하세요.');
   let text = textCache.get(`local:${s.fileKey}`);
@@ -91,6 +113,7 @@ registerWidget({
   defaultSettings: (): FileSettings => ({ source: 'builtin', dataset: 'iris', fileKey: '', fileName: '', url: '', overrides: {} }),
   async execute(_in, s: FileSettings, ctx) {
     const src = await loadSourceText(s, ctx);
+    if (looksLikeHtml(src.text)) throw new Error(NOT_DATA_MESSAGE);
     const res = await ctx.compute<ParseResult>('parse', { text: src.text, name: src.name, overrides: s.overrides });
     res.table.ids = newIds(res.table.nRows); // Worker에서 만든 ID는 메인 스레드 ID와 겹칠 수 있다
     for (const w of res.warnings) ctx.warn(w);
@@ -126,7 +149,7 @@ registerWidget({
     } else {
       const inp = h('input', { type: 'url', value: s.url, placeholder: 'https://…/data.csv' });
       controls.appendChild(box('URL', inp, button('불러오기', () => api.update({ url: inp.value.trim(), overrides: {} }), 'primary'),
-        note('다른 사이트의 파일은 CORS를 허용해야 불러올 수 있습니다(예: raw.githubusercontent.com).')));
+        note('CSV/TSV 파일 주소나 구글 스프레드시트 링크를 넣을 수 있습니다. 구글 시트는 "링크가 있는 모든 사용자"에게 공유되어 있어야 합니다. 다른 사이트의 파일은 CORS를 허용해야 불러올 수 있습니다.')));
     }
     const v = api.view as FileView | null;
     if (!v) { emptyMain(main, api.message || (api.status === 'running' ? '불러오는 중…' : '데이터 없음')); return; }
@@ -172,7 +195,7 @@ registerWidget({
   async execute(_in, s: { dataset: string }, ctx) {
     const ds = BUILTIN_DATASETS.find((d) => d.file === s.dataset);
     if (!ds) return waiting(ctx, '데이터셋을 선택하세요.');
-    const text = await fetchText(datasetUrl(ds.file), ctx.signal);
+    const text = await fetchText(datasetUrl(ds.file), ctx.signal, true);
     const res = await ctx.compute<ParseResult>('parse', { text, name: ds.file });
     res.table.ids = newIds(res.table.nRows);
     return { outputs: { data: res.table } };

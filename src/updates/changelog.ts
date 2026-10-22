@@ -14,6 +14,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.1.2',
+    date: '2026-10-22',
+    title: '구글 스프레드시트 불러오기',
+    summary: 'File 위젯의 URL에 구글 스프레드시트 링크를 그대로 붙여 넣으면 시트의 표를 데이터로 불러옵니다.',
+    added: [
+      '구글 시트 링크(…/edit, #gid=탭, 웹에 게시한 …/pubhtml)를 CSV 주소로 자동 변환',
+    ],
+    fixed: [
+      'URL이 웹페이지(HTML)를 가리킬 때 HTML 코드가 데이터로 읽히던 문제 → 안내 메시지 표시',
+      '외부 URL 데이터가 메모리에 캐시되어, 원본을 고친 뒤 다시 실행해도 예전 값이 나오던 문제',
+    ],
+  },
+  {
     version: '0.1.1',
     date: '2026-10-22',
     title: '앱으로 설치하기 (PWA)',
