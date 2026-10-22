@@ -158,15 +158,25 @@ function registerGeoMap() {
           ctx.strokeStyle = sel.has(i) ? '#111' : colorOf(i, Math.min(1, (dim ? a * 0.3 : a) + 0.35));
           ctx.lineWidth = sel.has(i) ? 2 : 1; ctx.stroke();
         }
+        // 범례는 왼쪽 위(오른쪽 위에는 확대/축소 버튼이 있다)
         if (cc && cc.variable.kind === 'discrete') {
           const vals = cc.variable.values!;
           ctx.font = '12px system-ui, sans-serif';
-          const lw = Math.max(...vals.map((v) => ctx.measureText(v).width)) + 30;
-          ctx.fillStyle = 'rgba(30,32,38,0.85)'; ctx.fillRect(map.w - lw - 8, 8, lw, vals.length * 18 + 8);
+          const lw = Math.max(ctx.measureText(cc.variable.name).width, ...vals.map((v) => ctx.measureText(v).width)) + 30;
+          ctx.fillStyle = 'rgba(30,32,38,0.88)'; ctx.fillRect(8, 8, lw, vals.length * 18 + 26);
+          ctx.fillStyle = '#ddd'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(cc.variable.name, 14, 20);
           vals.forEach((v, k) => {
-            ctx.fillStyle = discreteColor(k); ctx.beginPath(); ctx.arc(map.w - lw + 4, 21 + k * 18, 5, 0, Math.PI * 2); ctx.fill();
-            ctx.fillStyle = '#eee'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(v, map.w - lw + 14, 21 + k * 18);
+            ctx.fillStyle = discreteColor(k); ctx.beginPath(); ctx.arc(21, 38 + k * 18, 5, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#eee'; ctx.fillText(v, 32, 38 + k * 18);
           });
+        } else if (cc) {
+          ctx.font = '12px system-ui, sans-serif';
+          ctx.fillStyle = 'rgba(30,32,38,0.88)'; ctx.fillRect(8, 8, 150, 58);
+          ctx.fillStyle = '#ddd'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(cc.variable.name, 14, 20);
+          for (let k = 0; k < 130; k++) { ctx.fillStyle = continuousColor(k / 129); ctx.fillRect(14 + k, 30, 1, 10); }
+          ctx.fillStyle = '#eee'; ctx.textBaseline = 'top';
+          ctx.fillText(formatNumber(cRange[0]), 14, 44);
+          ctx.textAlign = 'right'; ctx.fillText(formatNumber(cRange[1]), 144, 44);
         }
       };
       const hitRows = (x0: number, y0: number, x1: number, y1: number) => {
