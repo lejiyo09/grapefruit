@@ -1,9 +1,24 @@
 {
+  "id": "./",
   "name": "Grapefruit — 시각적 데이터 분석",
   "short_name": "Grapefruit",
+  "description": "Orange Data Mining 스타일의 위젯 기반 데이터 분석·머신러닝 도구. 오프라인에서도 동작합니다.",
+  "lang": "ko",
   "start_url": "./",
+  "scope": "./",
   "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "orientation": "any",
   "background_color": "#1b1c21",
   "theme_color": "#1b1c21",
-  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+  "categories": ["education", "productivity", "utilities"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ],
+  "file_handlers": [
+    { "action": "./", "accept": { "text/csv": [".csv"], "text/tab-separated-values": [".tsv", ".tab"] } }
+  ]
 }

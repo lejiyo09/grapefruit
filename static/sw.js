@@ -4,10 +4,13 @@
  *  - 해시가 붙은 빌드 산출물, 데이터셋, 아이콘: 캐시 우선
  * 새 버전 감지는 앱이 version.json을 직접 확인해서 처리한다.
  */
-const CACHE = 'grapefruit-v1';
+const CACHE = 'grapefruit-v2';
+// 설치 직후부터 오프라인으로 쓸 수 있도록 미리 받아 두는 파일(빌드 산출물 JS/CSS는 첫 실행 때 캐시된다)
+const PRECACHE = ['./', './index.html', './manifest.webmanifest', './icon.svg', './icons/icon-192.png', './icons/icon-512.png',
+  './datasets/iris.tab', './datasets/titanic.tab', './datasets/heart_disease.tab', './datasets/housing.tab', './datasets/zoo.tab'];
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(CACHE).then((c) => c.addAll(['./', './index.html'])).catch(() => {}));
+  event.waitUntil(caches.open(CACHE).then((c) => c.addAll(PRECACHE)).catch(() => {}));
   self.skipWaiting();
 });
 

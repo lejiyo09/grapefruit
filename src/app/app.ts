@@ -9,6 +9,7 @@ import { h, download, toast, pickFile } from '../ui/dom';
 import { UpdateCenter, APP_VERSION } from '../updates/updates';
 import * as db from '../storage/db';
 import { EXAMPLES } from './examples';
+import { createInstallButton } from './install';
 
 const AUTOSAVE_KEY = 'autosave';
 /** 페이지를 닫을 때 IndexedDB 저장이 끝나기 전에 종료될 수 있어, 동기식 localStorage에도 백업한다 */
@@ -53,7 +54,7 @@ export function startApp(root: HTMLElement): void {
       h('button', { class: 'btn', title: '프로젝트 파일 열기 (.json)', onclick: () => void openProjectFile() }, '열기'),
       h('button', { class: 'btn', title: '프로젝트 파일로 저장 (Ctrl+S)', onclick: () => saveProjectFile() }, '저장'),
       examplesBtn),
-    h('div', { class: 'top-right' }, runState, cancelAll, updateBtn));
+    h('div', { class: 'top-right' }, runState, cancelAll, createInstallButton(), updateBtn));
 
   // ---------------- 팔레트 ----------------
   const collapsed = new Set<string>(parseJson(safeLs(LS_COLLAPSED)) ?? []);
@@ -148,6 +149,23 @@ export function startApp(root: HTMLElement): void {
   });
   window.addEventListener('pagehide', saveSync);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') saveSync(); });
+
+  // 설치된 앱에서 CSV/TSV/.tab 파일을 "연결 프로그램"으로 열었을 때(File Handling API)
+  const launchQueue = (window as unknown as { launchQueue?: { setConsumer(fn: (p: { files: Array<{ getFile(): Promise<File> }> }) => void): void } }).launchQueue;
+  launchQueue?.setConsumer(async (params) => {
+    for (const handle of params.files ?? []) {
+      const f = await handle.getFile();
+      const text = await f.text();
+      const key = await db.hashText(text);
+      if (text.length <= db.MAX_STORED_FILE_BYTES) await db.put('files', key, { name: f.name, text, size: f.size, savedAt: new Date().toISOString() } satisfies db.StoredFile);
+      const [cx, cy] = canvas.center();
+      const fileNode = wf.addNode('data.file', Math.round(cx - 120), Math.round(cy), { source: 'local', fileKey: key, fileName: f.name });
+      const table = wf.addNode('data.table', Math.round(cx + 100), Math.round(cy));
+      wf.autoConnect(fileNode.id, table.id);
+      toast(`'${f.name}' 파일을 열었습니다.`, { kind: 'success' });
+    }
+    scheduleSave();
+  });
 
   // 자동 저장 복원, 없으면 기본 예제
   void (async () => {

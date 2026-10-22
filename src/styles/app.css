@@ -337,3 +337,10 @@ input[type=range] { accent-color: var(--accent); width: 100%; }
 .road-head.later { color: var(--muted); }
 .road-item { border-left: 3px solid var(--line); padding: 4px 10px; display: flex; flex-direction: column; gap: 2px; }
 .row-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* PWA: 설치된 창(창 컨트롤 오버레이)에서는 제목 표시줄 영역을 끌어서 창을 옮길 수 있게 */
+.install-btn { border-color: var(--accent); color: var(--accent-2); }
+@media (display-mode: window-controls-overlay) {
+  .topbar { padding-left: max(10px, env(titlebar-area-x, 0px)); padding-right: calc(100vw - env(titlebar-area-width, 100vw) - env(titlebar-area-x, 0px) + 10px); app-region: drag; -webkit-app-region: drag; }
+  .topbar button, .topbar input, .topbar a { app-region: no-drag; -webkit-app-region: no-drag; }
+}

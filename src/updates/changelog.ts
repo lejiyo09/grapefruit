@@ -14,6 +14,21 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.1.1',
+    date: '2026-10-22',
+    title: '앱으로 설치하기 (PWA)',
+    summary: '크롬북과 PC에 Grapefruit를 앱으로 설치할 수 있습니다. 설치하면 런처에서 별도 창으로 열리고 인터넷 없이도 동작합니다.',
+    added: [
+      '상단의 [앱 설치] 버튼 (브라우저 주소창의 설치 아이콘으로도 설치 가능)',
+      '설치한 앱을 CSV · TSV · .tab 파일의 "연결 프로그램"으로 선택하면 File → Data Table로 바로 열기',
+      '설치 직후부터 기본 데이터셋 5종을 오프라인에서 사용 가능',
+    ],
+    improved: [
+      '크롬북 런처·작업 표시줄용 고해상도 아이콘(192/512px, 마스크형)',
+      'Render Static Site / Web Service 어느 방식으로 배포해도 동작',
+    ],
+  },
+  {
     version: '0.1.0',
     date: '2026-10-22',
     title: 'Grapefruit 첫 공개',
