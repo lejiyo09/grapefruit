@@ -6,7 +6,7 @@ import { crossValidate, scoreResults, aucBinary, mcc } from '../src/ml/evaluate'
 import { kmeans, pca, computeDistances, hierarchical, cutTopN } from '../src/ml/unsupervised';
 import { encode, fitEncoder } from '../src/ml/encode';
 
-const load = (n: string) => parseTable(readFileSync(`public/datasets/${n}.tab`, 'utf8'), n).table;
+const load = (n: string) => parseTable(readFileSync(`static/datasets/${n}.tab`, 'utf8'), n).table;
 
 describe('io', () => {
   it('parses Orange .tab headers', () => {

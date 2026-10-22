@@ -1,5 +1,5 @@
 import { defineConfig, type Plugin } from 'vite';
-import { readFileSync } from 'node:fs';
+import { readFileSync, cpSync, rmSync } from 'node:fs';
 
 const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as { version: string };
 
@@ -23,7 +23,26 @@ function versionFile(): Plugin {
   };
 }
 
+/**
+ * Render Static Site의 Publish Directory를 dist가 아닌 public/build로 지정해도 동작하도록
+ * 빌드 결과를 같은 내용으로 복사해 둔다. (정적 파일 원본은 static/ 폴더)
+ */
+function mirrorOutput(): Plugin {
+  return {
+    name: 'grapefruit-mirror-output',
+    apply: 'build',
+    closeBundle() {
+      for (const dir of ['public', 'build']) {
+        const target = new URL(`./${dir}/`, import.meta.url);
+        rmSync(target, { recursive: true, force: true });
+        cpSync(new URL('./dist/', import.meta.url), target, { recursive: true });
+      }
+    },
+  };
+}
+
 export default defineConfig({
+  publicDir: 'static',
   // 상대 경로로 빌드해 Render 루트 배포와 GitHub Pages 하위 경로 배포 모두에서 동작하게 한다.
   base: './',
   define: {
@@ -37,7 +56,7 @@ export default defineConfig({
     sourcemap: false,
     chunkSizeWarningLimit: 400,
   },
-  plugins: [versionFile()],
+  plugins: [versionFile(), mirrorOutput()],
   test: {
     environment: 'node',
     include: ['tests/**/*.test.ts'],
