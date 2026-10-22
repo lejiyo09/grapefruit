@@ -1,10 +1,22 @@
 import type { WidgetDef, PortDef, PortType } from './types';
 
 const widgets = new Map<string, WidgetDef>();
+const listeners = new Set<() => void>();
+
+/** 위젯 목록이 바뀔 때(애드온 설치/제거) 알림 */
+export function onRegistryChange(fn: () => void): () => void {
+  listeners.add(fn);
+  return () => listeners.delete(fn);
+}
 
 export function registerWidget(def: WidgetDef): void {
   if (widgets.has(def.type)) throw new Error(`위젯 타입 중복: ${def.type}`);
   widgets.set(def.type, def);
+  for (const fn of listeners) fn();
+}
+
+export function unregisterWidget(type: string): void {
+  if (widgets.delete(type)) for (const fn of listeners) fn();
 }
 
 export function getWidget(type: string): WidgetDef | undefined {

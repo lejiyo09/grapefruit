@@ -134,7 +134,11 @@ export class Plot {
 }
 
 export function plotSize(main: HTMLElement, minH = 320): [number, number] {
-  const w = main.clientWidth || 640;
-  const hh = Math.max(minH, (main.clientHeight || 480) - 8);
-  return [w - 4, hh];
+  // clientWidth/Height에는 안쪽 여백이 포함되므로 빼고, 아래 상태 문구 한 줄 공간을 남긴다
+  const cs = getComputedStyle(main);
+  const padX = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
+  const padY = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
+  const w = (main.clientWidth || 640) - padX;
+  const hh = Math.max(minH, (main.clientHeight || 480) - padY - 28);
+  return [w - 2, hh];
 }

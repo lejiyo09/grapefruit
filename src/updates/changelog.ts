@@ -14,6 +14,23 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.2.0',
+    date: '2026-10-22',
+    title: '애드온 · Geo 애드온',
+    summary: 'Orange처럼 필요한 위젯 묶음을 골라 내려받아 쓰는 애드온 기능이 생겼습니다. 첫 애드온은 지도 분석을 위한 Geo입니다. 상단의 [애드온] 버튼에서 설치하세요.',
+    added: [
+      '애드온 관리자: 설치·제거, 설치한 애드온은 이 브라우저에 저장되어 오프라인에서도 사용',
+      'Geo Map: 위도·경도 데이터를 지도에 점으로 표시, 영역 선택 → Selected Data',
+      'Choropleth Map: 국가·시·도·시·군·구별로 값을 집계(행 수, 합계, 평균, 중앙값, 최빈값 등)해 색칠',
+      'Geocoding: 지역 이름 ↔ 위도·경도 변환, 찾지 못한 이름은 직접 지정',
+      '배경 지도: OpenStreetMap, 흑백, 다크, 지형도, 오프라인 경계선',
+      '애드온 위젯이 들어 있는 프로젝트를 열면 설치 안내',
+    ],
+    improved: [
+      '그래프 크기가 위젯 창 안쪽 여백을 고려하도록 수정(오른쪽이 잘리던 문제)',
+    ],
+  },
+  {
     version: '0.1.2',
     date: '2026-10-22',
     title: '구글 스프레드시트 불러오기',
@@ -75,6 +92,7 @@ export const ROADMAP: RoadmapItem[] = [
   { title: 'MDS · t-SNE · Silhouette Plot · DBSCAN', detail: '샘플링 우선 정책을 적용한 고비용 비지도 학습 위젯', status: 'planned' },
   { title: 'Line Plot · Bar Plot · Mosaic Display · Violin Plot · Linear Projection', detail: '추가 시각화 위젯', status: 'planned' },
   { title: '.ows 가져오기', detail: 'Orange 워크플로 파일(.ows)을 Grapefruit 프로젝트로 변환', status: 'planned' },
+  { title: 'Geo 애드온 확장', detail: '세계 시·도(admin 1) 경계, 최신 행정구역 경계, 주소 → 좌표 변환', status: 'planned' },
   { title: 'DuckDB-Wasm (선택형)', detail: 'SQL Table · Parquet 지원. 필요할 때만 내려받는 선택형 엔진', status: 'later' },
   { title: 'Text · Time Series · Image Analytics 애드온', detail: 'Word Cloud, Bag of Words, Topic Modelling, 시계열 등 확장 위젯', status: 'later' },
 ];

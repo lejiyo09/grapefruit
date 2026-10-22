@@ -344,3 +344,23 @@ input[type=range] { accent-color: var(--accent); width: 100%; }
   .topbar { padding-left: max(10px, env(titlebar-area-x, 0px)); padding-right: calc(100vw - env(titlebar-area-width, 100vw) - env(titlebar-area-x, 0px) + 10px); app-region: drag; -webkit-app-region: drag; }
   .topbar button, .topbar input, .topbar a { app-region: no-drag; -webkit-app-region: no-drag; }
 }
+
+/* ---------- 애드온 대화상자 ---------- */
+.modal-overlay { position: fixed; inset: 0; z-index: 2600; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.modal { width: min(560px, 100%); max-height: calc(100vh - 32px); overflow-y: auto; background: var(--bg-2); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); }
+.modal-intro { margin: 10px 14px 0; }
+.addon-list { padding: 12px 14px 16px; display: flex; flex-direction: column; gap: 12px; }
+.addon-item { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; background: var(--bg); display: flex; flex-direction: column; gap: 6px; }
+.addon-item p { margin: 0; color: var(--fg-2); line-height: 1.5; }
+.addon-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.addon-head strong { font-size: 16px; margin-right: 8px; }
+.addon-progress { height: 4px; border-radius: 2px; background: linear-gradient(90deg, var(--ok) calc(var(--p, 0) * 100%), var(--bg-4) 0); }
+
+/* ---------- Geo 애드온 지도 ---------- */
+.map-wrap { position: relative; overflow: hidden; border-radius: 6px; }
+.map-canvas { cursor: grab; }
+.map-canvas:active { cursor: grabbing; }
+.map-zoom { position: absolute; right: 8px; top: 8px; display: flex; flex-direction: column; gap: 4px; background: rgba(30,32,38,.85); border-radius: 8px; padding: 3px; }
+.map-tip { position: absolute; pointer-events: none; background: rgba(20,21,26,.92); color: #fff; font-size: 12px; padding: 4px 8px; border-radius: 6px; max-width: 260px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.seg { display: flex; gap: 4px; }
+.seg .btn.on { background: var(--accent); color: #1b1c21; border-color: var(--accent); }

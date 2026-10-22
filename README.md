@@ -42,7 +42,20 @@ npm run build      # 타입 검사 + dist/ 빌드
 2. `src/updates/changelog.ts`의 `CHANGELOG` 맨 앞에 항목을 추가합니다.
 3. 커밋 후 `main`에 푸시 → Render 배포 → 사용자 화면에 업데이트 알림과 새 소식이 표시됩니다.
 
-## 위젯 (30개)
+## 애드온
+
+상단 **[애드온]** 버튼에서 위젯 묶음을 골라 설치합니다(Orange의 Options → Add-ons). 설치할 때 코드와 데이터를 내려받아 브라우저에 저장하므로 이후에는 오프라인에서도 쓸 수 있습니다.
+
+| 애드온 | 위젯 | 원본 |
+| --- | --- | --- |
+| **Geo** | Geo Map, Choropleth Map, Geocoding | orange3-geo (카테고리 색 `#a0eaa0`, `find_lat_lon` 규칙, Choropleth 집계 함수·기본값 동일) |
+
+- 경계 데이터: Natural Earth 1:110m 국가(퍼블릭 도메인), 통계청 2013 시·도/시·군·구(southkorea/southkorea-maps). 다시 만들려면 `scripts/build-geo-data.py`
+- 배경 지도: OpenStreetMap 등 타일 서버(인터넷 필요, 저작권 표시 포함). 타일을 못 받으면 내장 경계선으로 자동 전환
+- 시·군·구 경계는 2013년 기준이라 이후 바뀐 행정구역(예: 군위군 대구 편입)은 반영되어 있지 않습니다.
+- 새 애드온은 `src/addons/manager.ts`의 `ADDONS`에 항목을 추가하고, `register()`에서 위젯을 등록하는 모듈을 만들면 됩니다.
+
+## 위젯 (기본 30개)
 
 | 카테고리 | 위젯 |
 | --- | --- |

@@ -1,7 +1,7 @@
 /** 앱 셸: 상단 막대, 위젯 팔레트, 캔버스, 상태 표시줄, 자동 저장 */
 import { Workflow } from '../engine/workflow';
 import { WorkerCompute } from '../engine/compute';
-import { allWidgets } from '../engine/registry';
+import { allWidgets, onRegistryChange } from '../engine/registry';
 import { CATEGORIES, type ProjectFile } from '../engine/types';
 import { Canvas } from '../ui/canvas';
 import { WindowManager } from '../ui/windows';
@@ -10,6 +10,8 @@ import { UpdateCenter, APP_VERSION } from '../updates/updates';
 import * as db from '../storage/db';
 import { EXAMPLES } from './examples';
 import { createInstallButton } from './install';
+import { openAddonDialog } from './addons-dialog';
+import { loadInstalled, missingAddons, install } from '../addons/manager';
 
 const AUTOSAVE_KEY = 'autosave';
 /** 페이지를 닫을 때 IndexedDB 저장이 끝나기 전에 종료될 수 있어, 동기식 localStorage에도 백업한다 */
@@ -53,7 +55,8 @@ export function startApp(root: HTMLElement): void {
       h('button', { class: 'btn', title: '새 워크플로', onclick: () => newProject() }, '새로 만들기'),
       h('button', { class: 'btn', title: '프로젝트 파일 열기 (.json)', onclick: () => void openProjectFile() }, '열기'),
       h('button', { class: 'btn', title: '프로젝트 파일로 저장 (Ctrl+S)', onclick: () => saveProjectFile() }, '저장'),
-      examplesBtn),
+      examplesBtn,
+      h('button', { class: 'btn', title: '애드온 설치·제거 (Geo 등)', onclick: () => openAddonDialog(() => new Set([...wf.nodes.values()].map((n) => n.type))) }, '애드온')),
     h('div', { class: 'top-right' }, runState, cancelAll, createInstallButton(), updateBtn));
 
   // ---------------- 팔레트 ----------------
@@ -86,6 +89,7 @@ export function startApp(root: HTMLElement): void {
   };
   search.addEventListener('input', renderPalette);
   renderPalette();
+  onRegistryChange(() => requestAnimationFrame(renderPalette));
   const palette = h('aside', { class: 'palette' }, search, list);
 
   // ---------------- 상태 표시줄 ----------------
@@ -113,6 +117,12 @@ export function startApp(root: HTMLElement): void {
 
   // ---------------- 프로젝트 ----------------
   function loadProject(p: ProjectFile, fit = false) {
+    const missing = missingAddons(p.nodes.map((n) => n.type));
+    for (const a of missing) {
+      toast(`이 워크플로에는 ${a.name} 애드온 위젯이 있습니다.`, {
+        action: { label: `${a.name} 설치 후 다시 열기`, run: () => void install(a.id).then(() => loadProject(p, fit)).catch((e) => toast((e as Error).message, { kind: 'error' })) },
+      });
+    }
     windows.closeAll();
     const problems = wf.load(p);
     titleInput.value = wf.title;
@@ -169,6 +179,7 @@ export function startApp(root: HTMLElement): void {
 
   // 자동 저장 복원, 없으면 기본 예제
   void (async () => {
+    for (const m of await loadInstalled()) toast(m, { kind: 'error' });
     const fromDb = await db.get<Autosave>('projects', AUTOSAVE_KEY);
     const fromLs = parseJson<Autosave>(safeLs(LS_AUTOSAVE));
     const saved = [fromDb, fromLs].filter((x): x is Autosave => !!x?.project).sort((a, b) => b.savedAt.localeCompare(a.savedAt))[0];

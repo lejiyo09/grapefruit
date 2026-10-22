@@ -12,13 +12,16 @@ export interface PortDef {
   default?: boolean;
 }
 
-export type CategoryId = 'data' | 'transform' | 'visualize' | 'model' | 'evaluate' | 'unsupervised';
+/** 기본 카테고리 + 애드온이 추가하는 카테고리(예: 'geo') */
+export type CategoryId = 'data' | 'transform' | 'visualize' | 'model' | 'evaluate' | 'unsupervised' | (string & {});
 
 export interface Category {
   id: CategoryId;
   name: string;
   /** Orange 카테고리 배경색 (Orange/widgets/<category>/__init__.py 의 BACKGROUND) */
   color: string;
+  /** 애드온 카테고리면 애드온 id */
+  addon?: string;
 }
 
 export const CATEGORIES: Category[] = [
@@ -29,6 +32,15 @@ export const CATEGORIES: Category[] = [
   { id: 'evaluate', name: 'Evaluate', color: '#C3F3F3' },
   { id: 'unsupervised', name: 'Unsupervised', color: '#CAE1EF' },
 ];
+
+/** 애드온 카테고리 등록(기본 카테고리 뒤에 붙는다) */
+export function registerCategory(c: Category): void {
+  if (!CATEGORIES.some((x) => x.id === c.id)) CATEGORIES.push(c);
+}
+
+export function categoryOf(id: CategoryId): Category {
+  return CATEGORIES.find((c) => c.id === id) ?? { id, name: id, color: '#cccccc' };
+}
 
 export interface ComputeClient {
   run<T>(task: string, payload: unknown, signal: AbortSignal, onProgress?: (p: number) => void): Promise<T>;

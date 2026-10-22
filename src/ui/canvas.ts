@@ -7,7 +7,7 @@
  */
 import type { Workflow } from '../engine/workflow';
 import { getWidget, allWidgets, possibleLinks } from '../engine/registry';
-import { CATEGORIES, type WidgetDef, type NodeModel } from '../engine/types';
+import { categoryOf, type WidgetDef, type NodeModel } from '../engine/types';
 import { h, svg, toast } from './dom';
 
 const NODE_R = 32; // 아이콘 반지름
@@ -99,7 +99,7 @@ export class Canvas {
 
   private createNode(n: NodeModel): HTMLElement {
     const def = getWidget(n.type)!;
-    const cat = CATEGORIES.find((c) => c.id === def.category)!;
+    const cat = categoryOf(def.category);
     const icon = h('div', { class: 'node-icon', style: `--cat:${cat.color}` }, h('span', { class: 'abbr' }, def.abbr));
     const inA = def.inputs.length ? h('div', { class: 'anchor in', title: def.inputs.map((p) => p.name).join(', ') }) : null;
     const outA = def.outputs.length ? h('div', { class: 'anchor out', title: `${def.outputs.map((p) => p.name).join(', ')}\n끌어서 연결` }) : null;
@@ -302,7 +302,7 @@ export class Canvas {
       items = widgets.filter((w) => !q || w.name.toLowerCase().includes(q) || w.keywords?.some((k) => k.toLowerCase().includes(q)) || w.description.includes(q));
       active = Math.min(active, Math.max(0, items.length - 1));
       list.replaceChildren(...items.map((w, i) => {
-        const cat = CATEGORIES.find((c) => c.id === w.category)!;
+        const cat = categoryOf(w.category);
         return h('button', { class: `picker-item${i === active ? ' active' : ''}`, onclick: () => { this.closeMenu(); pick(w); } },
           h('span', { class: 'mini-icon', style: `--cat:${cat.color}` }, w.abbr), h('span', null, w.name), h('span', { class: 'muted small' }, cat.name));
       }));

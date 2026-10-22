@@ -5,7 +5,7 @@
  */
 import type { Workflow } from '../engine/workflow';
 import { getWidget } from '../engine/registry';
-import { CATEGORIES, type ViewApi } from '../engine/types';
+import { categoryOf, type ViewApi } from '../engine/types';
 import { h, clear } from './dom';
 
 interface OpenWindow { el: HTMLElement; render: () => void; unsub: () => void; lastStatus: string; closed: boolean }
@@ -28,7 +28,7 @@ export class WindowManager {
     const node = this.wf.nodes.get(id);
     if (!node) return;
     const def = getWidget(node.type)!;
-    const cat = CATEGORIES.find((c) => c.id === def.category)!;
+    const cat = categoryOf(def.category);
     const [w0, h0] = def.windowSize ?? [720, 480];
     const W = Math.min(w0, window.innerWidth - 16), H = Math.min(h0, window.innerHeight - 70);
     const offset = (this.open.size % 6) * 28;
