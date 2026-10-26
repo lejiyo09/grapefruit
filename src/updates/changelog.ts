@@ -14,6 +14,24 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.3.0',
+    date: '2026-10-26',
+    title: '이미지 분류 · Neural Network',
+    summary: 'Orange의 이미지 분류 수업 흐름(Import Images → Image Embedding → Neural Network → Test and Score · Confusion Matrix · Predictions → Image Viewer)을 그대로 할 수 있습니다. [애드온]에서 Image Analytics를 설치하고, [예제 ▾] → "이미지 분류"로 시작하세요.',
+    added: [
+      'Neural Network 위젯: 은닉층 뉴런 수, 활성화 함수(Identity·Logistic·tanh·ReLu), Solver(L-BFGS-B·SGD·Adam), 정규화 α, 최대 반복 — Orange 기본값과 같음',
+      'Image Analytics 애드온: Import Images(폴더째 불러오기, 하위 폴더 = 분류), Image Viewer, Image Embedding',
+      'Image Embedding의 SqueezeNet: Orange 로컬 SqueezeNet과 같은 모델·가중치·전처리로 이 기기에서 1000개 특징(n0~n999) 계산, 한 번 계산한 이미지는 저장해 재사용',
+      'Predictions: Selected Predictions 출력(표에서 행 선택), Orange처럼 "확률 : … → 예측 클래스"와 error 열 표시',
+      '예제: 이미지 분류 모델(수업 자료와 같은 배치)',
+    ],
+    improved: [
+      'Test and Score · Predictions 점수를 Orange처럼 소수 셋째 자리로 표시',
+      '표 열 너비를 내용 길이에 맞춤',
+      '저장소: 큰 데이터(이미지)를 메모리에 중복 보관하지 않도록 개선',
+    ],
+  },
+  {
     version: '0.2.0',
     date: '2026-10-22',
     title: '애드온 · Geo 애드온',
@@ -88,7 +106,9 @@ export interface RoadmapItem { title: string; detail: string; status: RoadmapSta
 
 export const ROADMAP: RoadmapItem[] = [
   { title: 'Formula · Create Class · Pivot Table', detail: '수식으로 새 열 만들기, 문자열 패턴으로 클래스 만들기, 피벗 표', status: 'next' },
-  { title: 'SVM · Gradient Boosting · Neural Network', detail: '추가 학습기와 Performance Curve, Calibration Plot', status: 'next' },
+  { title: 'SVM · Gradient Boosting', detail: '추가 학습기와 Performance Curve, Calibration Plot', status: 'next' },
+  { title: '신경망 놀이터', detail: 'TensorFlow Playground처럼 2차원 데이터로 은닉층·활성화 함수에 따른 결정 경계를 바로 보기', status: 'planned' },
+  { title: 'Image Grid · Save Images', detail: 'Image Analytics 추가 위젯', status: 'planned' },
   { title: 'MDS · t-SNE · Silhouette Plot · DBSCAN', detail: '샘플링 우선 정책을 적용한 고비용 비지도 학습 위젯', status: 'planned' },
   { title: 'Line Plot · Bar Plot · Mosaic Display · Violin Plot · Linear Projection', detail: '추가 시각화 위젯', status: 'planned' },
   { title: '.ows 가져오기', detail: 'Orange 워크플로 파일(.ows)을 Grapefruit 프로젝트로 변환', status: 'planned' },

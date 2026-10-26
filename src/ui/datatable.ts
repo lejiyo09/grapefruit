@@ -21,7 +21,12 @@ export function renderDataTable(host: HTMLElement, t: Table, opts: DataTableOpti
   const selected = opts.selected ?? new Set<number>();
   let anchor = -1;
 
-  const colW = cols.map((c) => Math.min(220, Math.max(70, c.variable.name.length * 8 + 28)));
+  // 열 너비: 이름과 앞쪽 값 50개 중 가장 긴 글자 수 기준(문자열 열은 더 넓게 허용)
+  const colW = cols.map((c) => {
+    let len = c.variable.name.length;
+    for (let i = 0; i < Math.min(50, t.nRows); i++) len = Math.max(len, cellText(c, i).length);
+    return Math.min(c.variable.kind === 'string' ? 320 : 220, Math.max(70, len * 8 + 24));
+  });
   const idxW = Math.max(48, String(t.nRows).length * 9 + 16);
   const totalW = idxW + colW.reduce((a, b) => a + b, 0);
 

@@ -49,20 +49,28 @@ npm run build      # 타입 검사 + dist/ 빌드
 | 애드온 | 위젯 | 원본 |
 | --- | --- | --- |
 | **Geo** | Geo Map, Choropleth Map, Geocoding | orange3-geo (카테고리 색 `#a0eaa0`, `find_lat_lon` 규칙, Choropleth 집계 함수·기본값 동일) |
+| **Image Analytics** | Import Images, Image Viewer, Image Embedding | orange3-imageanalytics (카테고리 색 `#F7F5A8`, 출력 열 구성·이름 동일) |
+
+**Image Embedding (SqueezeNet)** — Orange의 로컬 SqueezeNet 임베더와 같은 계산을 브라우저에서 합니다.
+- 모델·가중치: Orange가 쓰는 `ndf` 0.1.4 패키지의 SqueezeNet(MIT). `scripts/extract-squeezenet-weights.py`로 pickle을 안전하게(numpy 배열만 허용) float32 바이너리로 변환
+- 전처리: Pillow `resize((227, 227), LANCZOS)`를 고정소수점까지 그대로 옮긴 구현(`src/ml/resample.ts`, Pillow와 픽셀 단위 일치 테스트), `SqueezenetModel.preprocess`의 동작(가로 0열↔2열 교환 후 평균 빼기)까지 재현
+- 검증: 독립 NumPy 참조 구현(`scripts/ref-squeezenet.py`)과 최대 오차 1.3e-5
+- Inception v3, VGG-16/19, Painters, DeepLoc, openface는 Orange도 바이오랩 서버로 이미지를 보내 계산하므로 지원하지 않습니다.
+- 이미지는 원본 대신 미리보기와 227×227 축소본만 IndexedDB에 저장하고, 계산한 임베딩은 이미지별로 캐시합니다.
 
 - 경계 데이터: Natural Earth 1:110m 국가(퍼블릭 도메인), 통계청 2013 시·도/시·군·구(southkorea/southkorea-maps). 다시 만들려면 `scripts/build-geo-data.py`
 - 배경 지도: OpenStreetMap 등 타일 서버(인터넷 필요, 저작권 표시 포함). 타일을 못 받으면 내장 경계선으로 자동 전환
 - 시·군·구 경계는 2013년 기준이라 이후 바뀐 행정구역(예: 군위군 대구 편입)은 반영되어 있지 않습니다.
 - 새 애드온은 `src/addons/manager.ts`의 `ADDONS`에 항목을 추가하고, `register()`에서 위젯을 등록하는 모듈을 만들면 됩니다.
 
-## 위젯 (기본 30개)
+## 위젯 (기본 31개)
 
 | 카테고리 | 위젯 |
 | --- | --- |
 | Data | File(CSV/TSV/.tab/URL, 열 타입·역할 편집), Datasets, Data Table, Data Info, Feature Statistics, Save Data |
 | Transform | Select Columns, Select Rows, Data Sampler, Impute, Continuize, Discretize, Unique, Randomize, Transpose, Concatenate, Merge Data |
 | Visualize | Scatter Plot, Distributions, Box Plot, Correlations, Heat Map, Tree Viewer |
-| Model | Constant, kNN, Tree, Random Forest, Logistic Regression, Linear Regression, Naive Bayes |
+| Model | Constant, kNN, Tree, Random Forest, Logistic Regression, Linear Regression, Naive Bayes, Neural Network |
 | Evaluate | Test and Score, Predictions, Confusion Matrix, ROC Analysis |
 | Unsupervised | k-Means, PCA, Distances, Distance Matrix, Hierarchical Clustering |
 
@@ -73,6 +81,7 @@ Orange 소스(`biolab/orange3`)의 설정 기본값과 알고리즘 규칙을 �
 - **타입 추론**: `is_discrete_values` 규칙(수치 열은 {0,1}/{1,2}일 때만 범주형, 문자열 열은 고유값 ≤ n^0.7), 결측 토큰 `? nan . NA ~` 및 빈 칸, `.tab` 3줄 헤더와 `cD#name` 접두어
 - **카테고리 색**: Data `#FFD39F`, Transform `#FF9D5E`, Visualize `#FFB7B1`, Model `#FAC1D9`, Evaluate `#C3F3F3`, Unsupervised `#CAE1EF`
 - **kNN**: 이웃 5, Euclidean, Uniform, 정규화 없음 / **Tree**: 이진, 잎 ≥ 2, 분할 ≥ 5, 깊이 ≤ 100, 다수 클래스 95%에서 중단
+- **Neural Network**: scikit-learn MLP 방식, 은닉층 `100,`, ReLu, Adam, α 0.0001, 반복 200, random_state 1, 입력 표준화
 - **Random Forest**: 트리 10, 분할 ≥ 5, 특징 √p / **Logistic Regression**: Ridge(L2), C = 1 / **Linear Regression**: OLS, α = 0.0001
 - **Naive Bayes**: 수치형은 EqualFreq(n=4, `split_eq_freq`) 이산화, 라플라스 보정 공식 동일
 - **Test and Score**: 5-fold 층화 교차검증, 무작위 표본 10회 × 66%, 지표 AUC·CA·F1·Prec·Recall·MCC / MSE·RMSE·MAE·R2

@@ -80,7 +80,7 @@ registerWidget({
     });
     const rowsEl = r.learnerNames.map((name, i) => h('tr', null, h('td', null, name),
       ...(scores[i]
-        ? metrics.map((mt, j) => h('td', { class: `num${scores[i]![mt] === best[j] && r.learnerNames.length > 1 ? ' best' : ''}` }, formatNumber(scores[i]![mt], 3)))
+        ? metrics.map((mt, j) => h('td', { class: `num${scores[i]![mt] === best[j] && r.learnerNames.length > 1 ? ' best' : ''}` }, fmt3(scores[i]![mt])))
         : [h('td', { colspan: metrics.length, class: 'err' }, r.errors[i] ?? '')])));
     main.appendChild(h('div', { class: 'main-scroll' },
       h('table', { class: 'grid-table scores' },
@@ -89,6 +89,35 @@ registerWidget({
       h('div', { class: 'plot-stat' }, `${r.kind === 'classification' ? '분류' : '회귀'} · 목표: ${r.targetName} · 평가 행 ${r.actual.length.toLocaleString()}`)));
   },
 });
+
+/** Orange 점수 표기: 소수 셋째 자리 */
+const fmt3 = (v: number) => (Number.isNaN(v) ? '?' : v.toFixed(3));
+
+/**
+ * Orange Predictions 표 보기: 모델마다 "0.00 : 1.00 : 0.00 → 클래스" 한 열과 error(1 − 실제 클래스 확률).
+ * 회귀는 예측값과 error(|실제 − 예측|). 특징이 50개를 넘으면(이미지 임베딩 등) 표에서는 생략한다.
+ */
+function predictionDisplay(data: Table, models: Model[], preds: Array<Prediction | null>): Table {
+  const n = data.nRows;
+  const cols: Column[] = [];
+  models.forEach((m, mi) => {
+    const p = preds[mi];
+    if (!p) return;
+    const y = targetIn(data, m.target.name, m.target.classValues);
+    if (m.target.kind === 'classification') {
+      const cv = m.target.classValues!;
+      cols.push({ variable: { name: m.learner.name, kind: 'string' }, data: Array.from({ length: n }, (_, i) => {
+        const pr = Array.from({ length: p.k }, (_, c) => p.probs![i * p.k + c].toFixed(2)).join(' : ');
+        return `${pr} → ${cv[p.values[i]] ?? '?'}`;
+      }) });
+      if (y) cols.push({ variable: { name: 'error', kind: 'continuous', decimals: 3 }, data: Float64Array.from({ length: n }, (_, i) => (Number.isNaN(y[i]) ? NaN : 1 - p.probs![i * p.k + y[i]])) });
+    } else {
+      cols.push({ variable: { name: m.learner.name, kind: 'continuous', decimals: 3 }, data: p.values });
+      if (y) cols.push({ variable: { name: 'error', kind: 'continuous', decimals: 3 }, data: Float64Array.from({ length: n }, (_, i) => Math.abs(y[i] - p.values[i])) });
+    }
+  });
+  return { ...data, attributes: data.attributes.length > 50 ? [] : data.attributes, metas: [...cols, ...data.metas] };
+}
 
 /** 평가 결과를 원본 데이터 + 예측 열(메타) 테이블로 */
 function predictionsTable(r: ResultsWithData): Table {
@@ -116,10 +145,11 @@ registerWidget({
   description: '학습된 모델로 새 데이터를 예측하고, 목표 값이 있으면 성능도 보여줍니다.',
   keywords: ['predict', 'score', '예측'],
   inputs: [{ id: 'data', name: 'Data', type: 'Data', default: true }, { id: 'predictors', name: 'Predictors', type: 'Model', multiple: true, default: true }],
-  outputs: [{ id: 'predictions', name: 'Predictions', type: 'Data', default: true }, { id: 'results', name: 'Evaluation Results', type: 'Results' }],
+  // Orange: Selected Predictions(기본), Predictions, Evaluation Results
+  outputs: [{ id: 'selected', name: 'Selected Predictions', type: 'Data', default: true }, { id: 'predictions', name: 'Predictions', type: 'Data' }, { id: 'results', name: 'Evaluation Results', type: 'Results' }],
   windowSize: [960, 560],
-  defaultSettings: () => ({ showProbs: true }),
-  async execute(inputs, _s, ctx) {
+  defaultSettings: () => ({ showProbs: true, selection: [] as number[] }),
+  async execute(inputs, s: { selection: number[] }, ctx) {
     const data = tableInput(inputs.data);
     const models = (inputs.predictors as Model[]) ?? [];
     if (!data) return waiting(ctx, 'Data를 연결하세요.');
@@ -162,7 +192,9 @@ registerWidget({
         };
       }
     }
-    return { outputs: { predictions: out, results }, view: { out, results, nPred: extra.length } };
+    const sel = (s.selection ?? []).filter((i) => i < out.nRows);
+    const display = predictionDisplay(data, models, preds);
+    return { outputs: { selected: sel.length ? takeRows(out, sel) : null, predictions: out, results }, view: { out, results, nPred: extra.length, display } };
   },
   render({ controls, main }, api) {
     const v = api.view as { out: Table; results: ResultsWithData | null } | null;
@@ -177,12 +209,18 @@ registerWidget({
         h('tbody', null, ...r.learnerNames.map((n, i) => {
           if (r.errors[i]) return h('tr', null, h('td', null, n), h('td', { colspan: metrics.length, class: 'err' }, r.errors[i]!));
           const sc = scoreResults(r, i);
-          return h('tr', null, h('td', null, n), ...metrics.map((m) => h('td', { class: 'num' }, formatNumber(sc[m], 3))));
+          return h('tr', null, h('td', null, n), ...metrics.map((m) => h('td', { class: 'num' }, fmt3(sc[m]))));
         }))));
     }
     const host = h('div', { class: 'dt-host' });
     main.appendChild(host);
-    renderDataTable(host, v.out, { colorByClass: true });
+    const shown = (v as { display?: Table }).display ?? v.out;
+    if (shown.attributes.length === 0 && v.out.attributes.length > 50) main.appendChild(note(`특징 ${v.out.attributes.length}개는 표에서 생략했습니다(출력에는 포함).`));
+    renderDataTable(host, shown, {
+      colorByClass: true,
+      selected: new Set((api.settings.selection as number[] | undefined) ?? []),
+      onSelect: (rows) => api.update({ selection: rows }),
+    });
   },
 });
 

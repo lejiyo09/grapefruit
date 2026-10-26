@@ -158,6 +158,71 @@ learnerWidget({
   main: (el, m) => renderCoefs(el, m),
 });
 
+// Neural Network — Orange 기본값: 은닉층 "100,", ReLu, Adam, α=0.0001, 최대 반복 200, 재현 가능한 학습
+const NN_ALPHAS = [0, 0.0001, 0.0002, 0.0005, 0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100];
+learnerWidget({
+  type: 'model.neuralnetwork', learner: 'mlp', name: 'Neural Network', abbr: 'NN',
+  description: '다층 퍼셉트론(인공신경망). 은닉층 크기, 활성화 함수, 최적화 방법(Solver)을 고를 수 있습니다.',
+  keywords: ['neural network', 'mlp', 'deep learning', '신경망', '인공신경망', '퍼셉트론'],
+  defaults: { hidden: '100,', activation: 'relu', solver: 'adam', alpha: 0.0001, maxIter: 200, replicable: true },
+  params: (s) => ({ ...s }),
+  controls: (el, api) => {
+    const hidden = h('input', { type: 'text', value: String(api.settings.hidden) });
+    hidden.addEventListener('change', () => api.update({ hidden: hidden.value }));
+    el.appendChild(box('구조',
+      row('은닉층 뉴런 수', hidden),
+      note('쉼표로 층을 나눕니다. 예: "100," = 뉴런 100개 은닉층 1개, "64, 32" = 은닉층 2개'),
+      combo(api, 'activation', '활성화 함수', [['identity', 'Identity'], ['logistic', 'Logistic'], ['tanh', 'tanh'], ['relu', 'ReLu']]),
+      combo(api, 'solver', '최적화 (Solver)', [['lbfgs', 'L-BFGS-B'], ['sgd', 'SGD'], ['adam', 'Adam']])));
+    el.appendChild(box('학습',
+      combo(api, 'alpha', '정규화 α', NN_ALPHAS.map((a) => [a, String(a)])),
+      spin(api, 'maxIter', '최대 반복 횟수', 10, 100000, 10),
+      checkbox(api, 'replicable', '재현 가능한 학습 (Replicable training)')));
+    el.appendChild(note('입력 변수는 Orange처럼 자동으로 표준화합니다. 이미지 임베딩(1000개 이상 변수)처럼 큰 데이터는 학습에 시간이 걸리며, 아래 진행 막대와 [취소]로 확인·중단할 수 있습니다.'));
+  },
+  main: (el, m) => {
+    if (m.type !== 'mlp') return;
+    const net = m.net;
+    el.appendChild(h('table', { class: 'kv-table' },
+      h('tr', null, h('th', null, '층 구조'), h('td', null, net.sizes.join(' → '))),
+      h('tr', null, h('th', null, '학습한 반복 횟수'), h('td', null, String(net.iterations))),
+      h('tr', null, h('th', null, '마지막 손실'), h('td', null, formatNumber(net.loss, 5)))));
+    el.appendChild(drawNetwork(net.sizes));
+  },
+});
+
+/** 신경망 구조 그림(입력층·은닉층·출력층). 노드가 많으면 일부만 그린다 */
+function drawNetwork(sizes: number[]): HTMLElement {
+  const svgNs = 'http://www.w3.org/2000/svg';
+  const W = 460, H = 240, maxShow = 8;
+  const svgEl = document.createElementNS(svgNs, 'svg');
+  svgEl.setAttribute('viewBox', `0 0 ${W} ${H}`); svgEl.setAttribute('class', 'nn-svg');
+  const cols = sizes.map((n, l) => {
+    const shown = Math.min(n, maxShow);
+    const x = 40 + (l * (W - 80)) / Math.max(1, sizes.length - 1);
+    return Array.from({ length: shown }, (_, i) => ({ x, y: 30 + ((i + 0.5) * (H - 70)) / shown }));
+  });
+  for (let l = 0; l + 1 < cols.length; l++) for (const a of cols[l]) for (const b of cols[l + 1]) {
+    const line = document.createElementNS(svgNs, 'line');
+    line.setAttribute('x1', String(a.x)); line.setAttribute('y1', String(a.y)); line.setAttribute('x2', String(b.x)); line.setAttribute('y2', String(b.y));
+    line.setAttribute('class', 'nn-edge');
+    svgEl.appendChild(line);
+  }
+  cols.forEach((col, l) => {
+    for (const c of col) {
+      const circle = document.createElementNS(svgNs, 'circle');
+      circle.setAttribute('cx', String(c.x)); circle.setAttribute('cy', String(c.y)); circle.setAttribute('r', '7');
+      circle.setAttribute('class', l === 0 ? 'nn-in' : l === cols.length - 1 ? 'nn-out' : 'nn-hidden');
+      svgEl.appendChild(circle);
+    }
+    const t = document.createElementNS(svgNs, 'text');
+    t.setAttribute('x', String(col[0].x)); t.setAttribute('y', String(H - 10)); t.setAttribute('class', 'tree-text');
+    t.textContent = `${l === 0 ? '입력' : l === cols.length - 1 ? '출력' : '은닉'} ${sizes[l]}`;
+    svgEl.appendChild(t);
+  });
+  return h('div', { class: 'nn-wrap' }, svgEl);
+}
+
 // Naive Bayes
 learnerWidget({
   type: 'model.naivebayes', learner: 'naivebayes', name: 'Naive Bayes', abbr: 'NB',

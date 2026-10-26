@@ -64,4 +64,28 @@ export const EXAMPLES: Array<{ id: string; title: string; description: string; p
       { id: 'hc', type: 'unsupervised.hierarchical', title: 'Hierarchical Clustering', x: 560, y: 390, settings: { selectionMethod: 'topn', topN: 3 } },
     ], [['file', 'data', 'km', 'data'], ['km', 'data', 'sc', 'data'], ['file', 'data', 'pca', 'data'], ['pca', 'transformed', 'sc2', 'data'], ['file', 'data', 'dist', 'data'], ['dist', 'distances', 'hc', 'distances']]),
   },
+  {
+    id: 'image', title: '이미지 분류 (Image Analytics 애드온)', description: 'Import Images → Image Embedding → Neural Network → Test and Score · Confusion Matrix · Predictions → Image Viewer',
+    project: P('이미지 분류 모델', [
+      { id: 'imp', type: 'image.import', title: 'Import Images_train', x: 80, y: 190, settings: {} },
+      { id: 'iv', type: 'image.viewer', title: 'Image Viewer', x: 280, y: 110, settings: {} },
+      { id: 'dt1', type: 'data.table', title: 'Data Table (1)', x: 440, y: 70, settings: {} },
+      { id: 'emb', type: 'image.embedding', title: 'Image Embedding_train', x: 280, y: 260, settings: {} },
+      { id: 'dt', type: 'data.table', title: 'Data Table', x: 460, y: 190, settings: {} },
+      { id: 'nn', type: 'model.neuralnetwork', title: 'Neural Network', x: 460, y: 370, settings: {} },
+      { id: 'ts', type: 'evaluate.testandscore', title: 'Test and Score', x: 650, y: 300, settings: {} },
+      { id: 'cm', type: 'evaluate.confusionmatrix', title: 'Confusion Matrix', x: 810, y: 210, settings: {} },
+      { id: 'iv1', type: 'image.viewer', title: 'Image Viewer (1)', x: 980, y: 180, settings: {} },
+      { id: 'imp2', type: 'image.import', title: 'Import Images_test', x: 80, y: 520, settings: {} },
+      { id: 'emb2', type: 'image.embedding', title: 'Image Embedding_test', x: 280, y: 520, settings: {} },
+      { id: 'pred', type: 'evaluate.predictions', title: 'Predictions', x: 680, y: 520, settings: {} },
+      { id: 'iv2', type: 'image.viewer', title: 'Image Viewer (2)', x: 860, y: 520, settings: {} },
+    ], [
+      ['imp', 'data', 'iv', 'data'], ['iv', 'data', 'dt1', 'data'], ['imp', 'data', 'emb', 'images'],
+      ['emb', 'embeddings', 'dt', 'data'], ['emb', 'embeddings', 'ts', 'data'], ['emb', 'embeddings', 'nn', 'data'],
+      ['nn', 'learner', 'ts', 'learners'], ['ts', 'results', 'cm', 'results'], ['cm', 'selected', 'iv1', 'data'],
+      ['nn', 'model', 'pred', 'predictors'], ['imp2', 'data', 'emb2', 'images'], ['emb2', 'embeddings', 'pred', 'data'],
+      ['pred', 'selected', 'iv2', 'data'],
+    ]),
+  },
 ];

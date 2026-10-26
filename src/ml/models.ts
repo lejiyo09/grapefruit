@@ -8,8 +8,9 @@ import { type Encoder, type Target, type TargetKind, encode, fitEncoder, getTarg
 import { type FeatureDesc, type TreeNode, buildTree, describeFeatures, featureColumns, findLeaf } from './tree';
 import { lbfgs, choleskySolve } from './optimize';
 import { Rng, range } from './random';
+import { type MLPNet, type Activation, type Solver, trainMLP, predictMLP, parseHidden } from './mlp';
 
-export type LearnerType = 'constant' | 'knn' | 'tree' | 'forest' | 'logreg' | 'linreg' | 'naivebayes';
+export type LearnerType = 'constant' | 'knn' | 'tree' | 'forest' | 'logreg' | 'linreg' | 'naivebayes' | 'mlp';
 
 export interface LearnerSpec {
   type: LearnerType;
@@ -31,6 +32,7 @@ export type Model = ModelBase & (
   | { type: 'logreg'; enc: Encoder; W: Float64Array; p: number; k: number; binary: boolean }
   | { type: 'linreg'; enc: Encoder; coef: Float64Array; intercept: number }
   | { type: 'naivebayes'; feats: FeatureDesc[]; cuts: (number[] | null)[]; logClass: number[]; logCond: number[][][] }
+  | { type: 'mlp'; enc: Encoder; net: MLPNet }
 );
 
 export interface Prediction {
@@ -40,7 +42,7 @@ export interface Prediction {
   k: number;
 }
 
-export interface FitOptions { signal?: { aborted: boolean } }
+export interface FitOptions { signal?: { aborted: boolean }; onProgress?: (p: number) => void }
 
 /** 학습기가 지원하는 문제 유형 */
 export function supports(type: LearnerType, kind: TargetKind): boolean {
@@ -109,6 +111,20 @@ export function fit(spec: LearnerSpec, data: Table, opts: FitOptions = {}): Mode
     case 'logreg': return { ...base, type: 'logreg', ...fitLogReg(t, target, P, opts) };
     case 'linreg': return { ...base, type: 'linreg', ...fitLinReg(t, target, P) };
     case 'naivebayes': return { ...base, type: 'naivebayes', ...fitNaiveBayes(t, target) };
+    case 'mlp': {
+      // Orange NNBase 전처리: Continuize + Impute + Normalize(표준화)
+      const enc = fitEncoder(t, true);
+      const { X, n, p } = encode(enc, t);
+      const net = trainMLP(Float32Array.from(X), n, p, target.y, target.kind, target.classValues?.length ?? 0, {
+        hidden: parseHidden(String(P.hidden ?? '100,')),
+        activation: (P.activation ?? 'relu') as Activation,
+        solver: (P.solver ?? 'adam') as Solver,
+        alpha: Number(P.alpha ?? 0.0001),
+        maxIter: Number(P.maxIter ?? 200),
+        seed: P.replicable === false ? null : 1, // Orange: random_state=1 if replicable
+      }, opts.onProgress, opts.signal);
+      return { ...base, type: 'mlp', enc, net };
+    }
   }
 }
 
@@ -445,6 +461,12 @@ export function predict(model: Model, data: Table): Prediction {
         for (let j = 0; j < p; j++) s += model.coef[j] * X[i * p + j];
         values[i] = s;
       }
+      return finish();
+    }
+    case 'mlp': {
+      const { X } = encode(model.enc, data);
+      const out = predictMLP(model.net, Float32Array.from(X), n, K);
+      if (probs) probs.set(out.subarray(0, n * K)); else for (let i = 0; i < n; i++) values[i] = out[i];
       return finish();
     }
     case 'naivebayes': {

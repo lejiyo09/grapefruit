@@ -38,6 +38,17 @@ export const ADDONS: AddonInfo[] = [
     credits: '경계 데이터: Natural Earth(퍼블릭 도메인), 통계청 2013 행정구역(southkorea/southkorea-maps). 지도 타일: © OpenStreetMap contributors 외',
     load: () => import('./geo/index'),
   },
+  {
+    id: 'image',
+    name: 'Image Analytics',
+    description: '이미지 분류·군집을 위한 위젯. 폴더째 이미지를 불러오고, 심층 신경망(SqueezeNet)으로 이미지를 숫자 특징으로 바꿔(임베딩) Neural Network, Test and Score 등 일반 위젯으로 학습합니다.',
+    prefix: 'image.',
+    widgets: ['Import Images', 'Image Viewer', 'Image Embedding'],
+    assets: ['addons/image/squeezenet.bin', 'addons/image/squeezenet.json'],
+    size: '약 4.7 MB',
+    credits: 'SqueezeNet 가중치: ndf 0.1.4 (MIT, Primož Godec) — Orange Image Analytics의 로컬 SqueezeNet과 같은 모델',
+    load: () => import('./image/index'),
+  },
 ];
 
 const LS_KEY = 'grapefruit.addons';

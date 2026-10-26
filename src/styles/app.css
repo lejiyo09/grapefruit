@@ -364,3 +364,21 @@ input[type=range] { accent-color: var(--accent); width: 100%; }
 .map-tip { position: absolute; pointer-events: none; background: rgba(20,21,26,.92); color: #fff; font-size: 12px; padding: 4px 8px; border-radius: 6px; max-width: 260px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .seg { display: flex; gap: 4px; }
 .seg .btn.on { background: var(--accent); color: #1b1c21; border-color: var(--accent); }
+
+/* Neural Network 구조 그림 */
+.nn-wrap { max-width: 520px; }
+.nn-svg { width: 100%; height: auto; }
+.nn-edge { stroke: rgba(160,170,190,.25); stroke-width: 1; }
+.nn-in { fill: #7fc97f; }
+.nn-hidden { fill: #5fb3f9; }
+.nn-out { fill: #ff8a5c; }
+
+/* ---------- Image Analytics: 이미지 격자 ---------- */
+.img-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--cell, 100px), 1fr)); gap: 10px; padding: 4px; }
+.img-cell { margin: 0; padding: 6px; border-radius: 8px; border: 2px solid transparent; cursor: pointer; background: var(--bg); display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.img-cell:hover { background: var(--bg-3); }
+.img-cell.sel { border-color: var(--accent); background: rgba(255,138,92,.15); }
+.img-box { width: 100%; aspect-ratio: 4 / 3; display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 4px; background: var(--bg-2); }
+.img-box img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.img-box img.missing { display: none; }
+.img-cell figcaption { font-size: 12px; text-align: center; color: var(--fg-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
