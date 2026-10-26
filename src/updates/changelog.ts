@@ -14,6 +14,22 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.3.1',
+    date: '2026-10-26',
+    title: '서버 임베더 지원 (Inception v3 등)',
+    summary: 'Image Embedding에서 Inception v3, VGG-16, VGG-19, Painters, DeepLoc, openface를 쓸 수 있습니다. Orange와 같은 임베딩 서버로 이미지를 보내 계산하며, 보내기 전에 동의를 받습니다.',
+    added: [
+      'Orange 임베딩 서버(api.garaza.io)와 같은 방식으로 요청: 모델 입력 크기(299·256·224·64px)로 LANCZOS 축소한 JPEG',
+      'Image Embedding 기본 임베더를 Orange처럼 Inception v3(2048개 특징)로',
+      '이미지 전송 동의 체크, 다른 서버 주소 지정(고급)',
+      '연결 순서: 지정한 서버 → 이 앱 주소의 /embed-api/ 프록시 → Orange 서버 직접',
+    ],
+    improved: [
+      'Import Images가 서버 임베더용 크기의 이미지도 함께 저장(이전 버전에서 불러온 폴더는 다시 선택 필요)',
+      '서버 임베딩 결과도 이미지별로 캐시',
+    ],
+  },
+  {
     version: '0.3.0',
     date: '2026-10-26',
     title: '이미지 분류 · Neural Network',

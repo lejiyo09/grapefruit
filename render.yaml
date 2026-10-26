@@ -6,6 +6,11 @@ services:
     runtime: static
     buildCommand: npm ci && npm run build
     staticPublishPath: ./dist
+    # Image Embedding의 서버 임베더(Inception v3 등)용 프록시: 같은 주소로 보내 브라우저 CORS 제한을 피한다
+    routes:
+      - type: rewrite
+        source: /embed-api/*
+        destination: https://api.garaza.io/*
     headers:
       # 업데이트 감지와 오프라인 캐시가 제대로 동작하려면 이 세 파일은 항상 새로 받아야 한다
       - path: /index.html

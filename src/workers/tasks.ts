@@ -23,10 +23,19 @@ async function squeezeNetWeights(binUrl: string, indexUrl: string): Promise<Sque
   return w;
 }
 
-export interface PreparedImage { px: Uint8Array; preview: Blob; width: number; height: number }
+export interface PreparedImage { px: Uint8Array; preview: Blob; width: number; height: number; jpeg: Record<number, Blob> }
 
 /** 이미지 하나: Orange ImageLoader처럼 RGB로 바꾸고 227×227 LANCZOS로 줄인 픽셀 + 미리보기 JPEG */
-async function prepImage(p: { bitmap: ImageBitmap; previewMax: number }): Promise<PreparedImage> {
+/** RGB 바이트 → JPEG Blob (Pillow image.save(format="JPEG") 기본 품질 75) */
+async function rgbToJpeg(rgb: Uint8Array, w: number, h: number): Promise<Blob> {
+  const rgba = new Uint8ClampedArray(w * h * 4);
+  for (let i = 0, j = 0; i < rgb.length; i += 3, j += 4) { rgba[j] = rgb[i]; rgba[j + 1] = rgb[i + 1]; rgba[j + 2] = rgb[i + 2]; rgba[j + 3] = 255; }
+  const c = new OffscreenCanvas(w, h);
+  c.getContext('2d')!.putImageData(new ImageData(rgba, w, h), 0, 0);
+  return c.convertToBlob({ type: 'image/jpeg', quality: 0.75 });
+}
+
+async function prepImage(p: { bitmap: ImageBitmap; previewMax: number; serverSizes?: number[] }): Promise<PreparedImage> {
   const { bitmap } = p;
   const width = bitmap.width, height = bitmap.height;
   const canvas = new OffscreenCanvas(width, height);
@@ -42,12 +51,16 @@ async function prepImage(p: { bitmap: ImageBitmap; previewMax: number }): Promis
   pg.drawImage(bitmap, 0, 0, pw, ph);
   bitmap.close();
   const preview = await pc.convertToBlob({ type: 'image/jpeg', quality: 0.85 });
-  return { px, preview, width, height };
+  // 서버 임베더(Inception v3 등)로 보낼 JPEG: Orange ImageLoader.load_image_bytes 와 같이
+  // 원본을 모델 입력 크기로 LANCZOS 축소한 뒤 JPEG 저장
+  const jpeg: Record<number, Blob> = {};
+  for (const size of p.serverSizes ?? []) jpeg[size] = await rgbToJpeg(size === SQUEEZENET_SIZE ? px : resizeLanczosRGB(rgb, width, height, size, size), size, size);
+  return { px, preview, width, height, jpeg };
 }
 type Signal = { aborted: boolean };
 
 export const TASKS: Record<string, (payload: any, progress: Progress, signal: Signal) => unknown> = {
-  prepImage: (p: { bitmap: ImageBitmap; previewMax: number }) => prepImage(p),
+  prepImage: (p: { bitmap: ImageBitmap; previewMax: number; serverSizes?: number[] }) => prepImage(p),
   embedSqueezeNet: async (p: { binUrl: string; indexUrl: string; images: Uint8Array[] }, progress, signal) => {
     const w = await squeezeNetWeights(p.binUrl, p.indexUrl);
     return p.images.map((img, i) => {

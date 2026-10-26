@@ -41,8 +41,15 @@ function mirrorOutput(): Plugin {
   };
 }
 
+/** 이미지 임베딩 서버 프록시(/embed-api/* → Orange 임베딩 서버). 브라우저 CORS 제한을 피한다 */
+const embedProxy = {
+  '/embed-api': { target: 'https://api.garaza.io', changeOrigin: true, rewrite: (p: string) => p.replace(/^\/embed-api/, '') },
+};
+
 export default defineConfig({
   publicDir: 'static',
+  server: { proxy: embedProxy },
+  preview: { proxy: embedProxy },
   // 상대 경로로 빌드해 Render 루트 배포와 GitHub Pages 하위 경로 배포 모두에서 동작하게 한다.
   base: './',
   define: {

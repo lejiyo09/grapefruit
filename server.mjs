@@ -25,7 +25,25 @@ const TYPES = {
   '.tab': 'text/tab-separated-values; charset=utf-8', '.csv': 'text/csv; charset=utf-8', '.wasm': 'application/wasm',
 };
 
+const EMBED_SERVER = 'https://api.garaza.io';
+
+/** /embed-api/* → Orange 이미지 임베딩 서버로 전달(브라우저 CORS 제한 회피) */
+async function proxyEmbedding(req, res) {
+  try {
+    const chunks = [];
+    for await (const c of req) chunks.push(c);
+    const target = EMBED_SERVER + req.url.replace(/^\/embed-api/, '');
+    const r = await fetch(target, { method: req.method, headers: { 'Content-Type': req.headers['content-type'] ?? 'application/octet-stream' }, body: req.method === 'GET' || req.method === 'HEAD' ? undefined : Buffer.concat(chunks) });
+    res.writeHead(r.status, { 'Content-Type': r.headers.get('content-type') ?? 'application/json' });
+    res.end(Buffer.from(await r.arrayBuffer()));
+  } catch (e) {
+    res.writeHead(502, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: String(e) }));
+  }
+}
+
 createServer((req, res) => {
+  if (req.url?.startsWith('/embed-api/')) { void proxyEmbedding(req, res); return; }
   let path = decodeURIComponent(new URL(req.url ?? '/', 'http://x').pathname);
   if (path.endsWith('/')) path += 'index.html';
   let file = normalize(join(dist, path));

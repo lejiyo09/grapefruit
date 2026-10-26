@@ -55,7 +55,10 @@ npm run build      # 타입 검사 + dist/ 빌드
 - 모델·가중치: Orange가 쓰는 `ndf` 0.1.4 패키지의 SqueezeNet(MIT). `scripts/extract-squeezenet-weights.py`로 pickle을 안전하게(numpy 배열만 허용) float32 바이너리로 변환
 - 전처리: Pillow `resize((227, 227), LANCZOS)`를 고정소수점까지 그대로 옮긴 구현(`src/ml/resample.ts`, Pillow와 픽셀 단위 일치 테스트), `SqueezenetModel.preprocess`의 동작(가로 0열↔2열 교환 후 평균 빼기)까지 재현
 - 검증: 독립 NumPy 참조 구현(`scripts/ref-squeezenet.py`)과 최대 오차 1.3e-5
-- Inception v3, VGG-16/19, Painters, DeepLoc, openface는 Orange도 바이오랩 서버로 이미지를 보내 계산하므로 지원하지 않습니다.
+- **서버 임베더**(Inception v3 · VGG-16/19 · Painters · DeepLoc · openface): Orange와 같은 임베딩 서버(`https://api.garaza.io/`)로 `POST /image/<모델>?machine=…&session=…&retry=…` 요청, 본문은 모델 입력 크기로 LANCZOS 축소한 JPEG(Orange `ImageLoader.load_image_bytes`와 같은 방식). 위젯에서 전송 동의를 해야 보냄
+- 브라우저는 다른 도메인 서버를 CORS로 막을 수 있어 **같은 주소 프록시 `/embed-api/*`** 를 먼저 씁니다.
+  - Render Static Site: `render.yaml`에 재작성 규칙 포함. 대시보드로 만든 서비스라면 **Settings → Redirects/Rewrites**에 `Source: /embed-api/*`, `Destination: https://api.garaza.io/*`, `Action: Rewrite` 추가
+  - Web Service(`server.mjs`)와 `npm run dev`/`preview`에는 프록시 내장
 - 이미지는 원본 대신 미리보기와 227×227 축소본만 IndexedDB에 저장하고, 계산한 임베딩은 이미지별로 캐시합니다.
 
 - 경계 데이터: Natural Earth 1:110m 국가(퍼블릭 도메인), 통계청 2013 시·도/시·군·구(southkorea/southkorea-maps). 다시 만들려면 `scripts/build-geo-data.py`

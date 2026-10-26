@@ -11,7 +11,7 @@ import { h, toast } from '../../ui/dom';
 import { box, combo, note, slider, emptyMain, button, varCombo } from '../../ui/controls';
 import { waiting, tableInput } from '../../widgets/common';
 import type { PreparedImage } from '../../workers/tasks';
-import { SQUEEZENET_DIM } from '../../ml/squeezenet';
+import { embedOnServer, ORANGE_EMBEDDING_SERVER } from './server';
 import type { AddonModule } from '../manager';
 import {
   type ImageItem, type ImageSet, REF_PREFIX, refOf, isImageRef, saveSet, loadSet, deleteSet, saveImage, loadImage,
@@ -64,8 +64,8 @@ async function importFiles(files: File[], onProgress: (done: number, total: numb
     try {
       // Orange(Pillow)는 EXIF 회전을 적용하지 않고 저장된 방향 그대로 읽는다
       const bitmap = await createImageBitmap(e.file, { imageOrientation: 'none' } as ImageBitmapOptions).catch(() => createImageBitmap(e.file));
-      const r = await importer.run<PreparedImage>('prepImage', { bitmap, previewMax: PREVIEW_MAX }, signal);
-      await saveImage(key, e.path, { preview: r.preview, px: r.px, width: r.width, height: r.height });
+      const r = await importer.run<PreparedImage>('prepImage', { bitmap, previewMax: PREVIEW_MAX, serverSizes: SERVER_SIZES }, signal);
+      await saveImage(key, e.path, { preview: r.preview, px: r.px, width: r.width, height: r.height, jpeg: r.jpeg });
       items.push({ path: e.path, name: e.file.name.replace(/\.[^.]+$/, ''), category: e.category, size: e.file.size, width: r.width, height: r.height });
     } catch (err) {
       if (signal.aborted) throw err;
@@ -230,18 +230,23 @@ function registerImageViewer() {
 }
 
 // ------------------------------------------------------------------ Image Embedding
-/** Orange image_embedder.MODELS 순서. 로컬 계산은 SqueezeNet만 가능(나머지는 Orange도 바이오랩 서버에서 계산) */
-const EMBEDDERS: Array<{ id: string; name: string; local: boolean; description: string }> = [
-  { id: 'inception-v3', name: 'Inception v3', local: false, description: "Google's Inception v3 model trained on ImageNet." },
-  { id: 'squeezenet', name: 'SqueezeNet (local)', local: true, description: 'Deep model for image recognition that achieves AlexNet-level accuracy on ImageNet with 50x fewer parameters.' },
-  { id: 'vgg16', name: 'VGG-16', local: false, description: '16-layer image recognition model trained on ImageNet.' },
-  { id: 'vgg19', name: 'VGG-19', local: false, description: '19-layer image recognition model trained on ImageNet.' },
-  { id: 'painters', name: 'Painters', local: false, description: 'A model trained to predict painters from artwork images.' },
-  { id: 'deeploc', name: 'DeepLoc', local: false, description: 'A model trained to analyze yeast cell images.' },
-  { id: 'openface', name: 'openface', local: false, description: 'Face recognition model trained on FaceScrub and InstaFace datasets.' },
+/**
+ * Orange image_embedder.MODELS (순서·입력 크기 동일). SqueezeNet은 이 기기에서, 나머지는 Orange와 같은
+ * 바이오랩 임베딩 서버(api.garaza.io)에 이미지를 보내 계산한다.
+ */
+const EMBEDDERS: Array<{ id: string; name: string; local: boolean; size: number; description: string }> = [
+  { id: 'inception-v3', name: 'Inception v3', local: false, size: 299, description: "Google's Inception v3 model trained on ImageNet." },
+  { id: 'squeezenet', name: 'SqueezeNet (local)', local: true, size: 227, description: 'Deep model for image recognition that achieves AlexNet-level accuracy on ImageNet with 50x fewer parameters.' },
+  { id: 'vgg16', name: 'VGG-16', local: false, size: 224, description: '16-layer image recognition model trained on ImageNet.' },
+  { id: 'vgg19', name: 'VGG-19', local: false, size: 224, description: '19-layer image recognition model trained on ImageNet.' },
+  { id: 'painters', name: 'Painters', local: false, size: 256, description: 'A model trained to predict painters from artwork images.' },
+  { id: 'deeploc', name: 'DeepLoc', local: false, size: 64, description: 'A model trained to analyze yeast cell images.' },
+  { id: 'openface', name: 'openface', local: false, size: 256, description: 'Face recognition model trained on FaceScrub and InstaFace datasets.' },
 ];
+/** Import Images가 미리 만들어 두는 서버 임베더 입력 크기 */
+export const SERVER_SIZES = [...new Set(EMBEDDERS.filter((e) => !e.local).map((e) => e.size))];
 
-interface EmbedSettings { imageAttr: string; embedder: string }
+interface EmbedSettings { imageAttr: string; embedder: string; consent: boolean; serverUrl: string }
 
 function registerImageEmbedding() {
   registerWidget({
@@ -250,85 +255,128 @@ function registerImageEmbedding() {
     category: 'image',
     abbr: 'Emb',
     description: '심층 신경망으로 이미지의 특징을 숫자 벡터(n0, n1, …)로 바꿉니다. 이 벡터로 분류·군집 등 일반 머신러닝을 할 수 있습니다.',
-    keywords: ['embedding', 'cnn', 'squeezenet', 'feature', '임베딩', '특징'],
+    keywords: ['embedding', 'cnn', 'inception', 'squeezenet', 'vgg', 'feature', '임베딩', '특징'],
     inputs: [{ id: 'images', name: 'Images', type: 'Data', default: true }],
     outputs: [{ id: 'embeddings', name: 'Embeddings', type: 'Data', default: true }, { id: 'skipped', name: 'Skipped Images', type: 'Data' }],
-    windowSize: [480, 460],
+    windowSize: [500, 560],
     controlsOnly: true,
-    defaultSettings: (): EmbedSettings => ({ imageAttr: '', embedder: 'squeezenet' }),
+    // Orange 기본값: cb_embedder_current_id = 0 → Inception v3
+    defaultSettings: (): EmbedSettings => ({ imageAttr: '', embedder: 'inception-v3', consent: false, serverUrl: '' }),
     async execute(inputs, s: EmbedSettings, ctx) {
       const t = tableInput(inputs.images);
       if (!t) return waiting(ctx, 'Import Images의 출력을 연결하세요.');
-      const emb = EMBEDDERS.find((e) => e.id === s.embedder);
-      if (!emb?.local) throw new Error(`${emb?.name ?? s.embedder}은(는) Orange에서도 바이오랩 서버로 이미지를 보내 계산하는 임베더라 이 앱에서는 쓸 수 없습니다. SqueezeNet (local)을 고르세요.`);
+      const emb = EMBEDDERS.find((e) => e.id === s.embedder) ?? EMBEDDERS[1];
+      if (!emb.local && !s.consent) return waiting(ctx, `${emb.name}은(는) Orange처럼 이미지를 임베딩 서버로 보내 계산합니다. 위젯 창에서 전송에 동의하거나 SqueezeNet (local)을 고르세요.`);
       const ic = findImageColumn(t, s.imageAttr);
       if (!ic) throw new Error('이미지 경로가 들어 있는 문자열 열이 없습니다.');
       const refs = ic.data as string[];
       const n = t.nRows;
       const out = new Array<Float32Array | null>(n).fill(null);
-      const binUrl = new URL('addons/image/squeezenet.bin', document.baseURI).href;
-      const indexUrl = new URL('addons/image/squeezenet.json', document.baseURI).href;
       // 1) 캐시 확인, 계산할 이미지 준비
-      const todo: Array<{ rows: number[]; ref: string; px: Uint8Array }> = [];
+      const todo: Array<{ rows: number[]; ref: string; px: Uint8Array; jpeg?: Blob }> = [];
       const byRef = new Map<string, number[]>();
       refs.forEach((r, i) => { if (r) { if (!byRef.has(r)) byRef.set(r, []); byRef.get(r)!.push(i); } });
-      let k = 0;
+      let k = 0, needReimport = 0;
       for (const [ref, rows] of byRef) {
         if (ctx.signal.aborted) throw new DOMException('취소됨', 'AbortError');
         let rec = await loadImage(ref);
         if (!rec && !isImageRef(ref) && /^https?:/.test(ref)) {
           try {
             const blob = await (await fetch(ref, { signal: ctx.signal })).blob();
-            const p = await ctx.compute<PreparedImage>('prepImage', { bitmap: await createImageBitmap(blob), previewMax: PREVIEW_MAX });
-            rec = { preview: p.preview, px: p.px, width: p.width, height: p.height };
+            const p = await ctx.compute<PreparedImage>('prepImage', { bitmap: await createImageBitmap(blob), previewMax: PREVIEW_MAX, serverSizes: emb.local ? [] : [emb.size] });
+            rec = { preview: p.preview, px: p.px, width: p.width, height: p.height, jpeg: p.jpeg };
           } catch (e) { if (ctx.signal.aborted) throw e; }
         }
         const cached = rec?.emb?.[emb.id];
         if (cached) for (const r of rows) out[r] = cached;
-        else if (rec) todo.push({ rows, ref, px: rec.px });
+        else if (rec) {
+          const jpeg = rec.jpeg?.[emb.size];
+          if (!emb.local && !jpeg) needReimport++;
+          else todo.push({ rows, ref, px: rec.px, jpeg });
+        }
         ctx.progress((0.05 * ++k) / byRef.size);
       }
-      // 2) 묶음 단위로 Worker에서 계산(취소 가능), 결과는 이미지별로 캐시
-      const B = 6;
-      for (let i = 0; i < todo.length; i += B) {
-        const chunk = todo.slice(i, i + B);
-        const res = await ctx.compute<Float32Array[]>('embedSqueezeNet', { binUrl, indexUrl, images: chunk.map((c) => c.px) });
-        for (let j = 0; j < chunk.length; j++) {
-          for (const r of chunk[j].rows) out[r] = res[j];
-          if (isImageRef(chunk[j].ref)) await saveEmbedding(chunk[j].ref, emb.id, res[j]);
+      if (needReimport) ctx.warn(`${needReimport}개 이미지는 이전 버전에서 불러와 ${emb.name}용 크기(${emb.size}px)가 없습니다. Import Images에서 폴더를 다시 선택하세요.`);
+      // 2) 계산: SqueezeNet은 Worker에서, 나머지는 임베딩 서버로. 결과는 이미지별로 캐시
+      let endpoint = '';
+      if (emb.local) {
+        const binUrl = new URL('addons/image/squeezenet.bin', document.baseURI).href;
+        const indexUrl = new URL('addons/image/squeezenet.json', document.baseURI).href;
+        const B = 6;
+        for (let i = 0; i < todo.length; i += B) {
+          const chunk = todo.slice(i, i + B);
+          const res = await ctx.compute<Float32Array[]>('embedSqueezeNet', { binUrl, indexUrl, images: chunk.map((c) => c.px) });
+          for (let j = 0; j < chunk.length; j++) {
+            for (const r of chunk[j].rows) out[r] = res[j];
+            if (isImageRef(chunk[j].ref)) await saveEmbedding(chunk[j].ref, emb.id, res[j]);
+          }
+          ctx.progress(0.05 + (0.95 * Math.min(todo.length, i + B)) / todo.length);
         }
-        ctx.progress(0.05 + (0.95 * Math.min(todo.length, i + B)) / todo.length);
+      } else if (todo.length) {
+        let done = 0;
+        const saves: Promise<void>[] = [];
+        try {
+          const r = await embedOnServer(emb.id, todo.map((x) => x.jpeg!), s.serverUrl, ctx.signal, (i, e) => {
+            if (e) {
+              const v = Float32Array.from(e);
+              for (const row of todo[i].rows) out[row] = v;
+              if (isImageRef(todo[i].ref)) saves.push(saveEmbedding(todo[i].ref, emb.id, v));
+            }
+            ctx.progress(0.05 + (0.95 * ++done) / todo.length);
+          });
+          endpoint = r.endpoint;
+        } catch (e) {
+          if (ctx.signal.aborted || (e as Error).name === 'AbortError') throw e;
+          throw new Error(`${(e as Error).message}\n\n인터넷 연결을 확인하세요. 배포 주소에서 쓰는 경우 Render에 /embed-api/* → ${ORANGE_EMBEDDING_SERVER}* 재작성(Rewrite) 규칙이 필요할 수 있습니다(README 참고). 인터넷 없이 쓰려면 SqueezeNet (local)을 고르세요.`);
+        }
+        await Promise.all(saves);
       }
       const okRows: number[] = [], badRows: number[] = [];
       out.forEach((e, i) => (e ? okRows : badRows).push(i));
-      if (badRows.length) ctx.warn(`${badRows.length}개 이미지를 읽지 못해 Skipped Images로 보냈습니다.`);
+      if (badRows.length) ctx.warn(`${badRows.length}개 이미지를 임베딩하지 못해 Skipped Images로 보냈습니다.`);
       if (!okRows.length) return { outputs: { embeddings: null, skipped: t } };
+      const dim = out[okRows[0]]!.length;
       const base = takeRows(t, okRows);
-      const feats: Column[] = Array.from({ length: SQUEEZENET_DIM }, (_, f) => ({
+      const feats: Column[] = Array.from({ length: dim }, (_, f) => ({
         variable: { name: `n${f}`, kind: 'continuous' as const, decimals: 3 },
-        data: Float64Array.from(okRows, (r) => out[r]![f]),
+        data: Float64Array.from(okRows, (r) => out[r]![f] ?? NaN),
       }));
-      ctx.info(`${okRows.length}개 이미지 임베딩 (${todo.length}개 새로 계산, ${okRows.length - todo.reduce((a, c) => a + c.rows.length, 0)}개 캐시)`);
+      const fresh = todo.reduce((a, c) => a + c.rows.length, 0);
+      ctx.info(`${okRows.length}개 이미지 임베딩 (${emb.name}, ${dim}차원 · ${todo.length}개 새로 계산, ${Math.max(0, okRows.length - fresh)}개 캐시)`);
       return {
         outputs: { embeddings: { ...base, attributes: [...base.attributes, ...feats] }, skipped: badRows.length ? takeRows(t, badRows) : null },
-        view: { ok: okRows.length, computed: todo.length, skipped: badRows.length },
+        view: { ok: okRows.length, computed: todo.length, skipped: badRows.length, dim, endpoint },
       };
     },
     render({ controls }, api: ViewApi<EmbedSettings>) {
       const t = tableInput(api.inputs.images);
       const ic = t ? findImageColumn(t, api.settings.imageAttr) : undefined;
+      const embCombo = combo(api, 'embedder', '임베더 (Embedder)', EMBEDDERS.map((e) => [e.id, e.name]));
       if (t) {
         const el = varCombo(api, 'imageAttr', '이미지 열', t, (c) => c.variable.kind === 'string');
         { const sel = selectIn(el); if (ic && sel) sel.value = ic.variable.name; }
-        controls.appendChild(box('설정', el,
-          combo(api, 'embedder', '임베더 (Embedder)', EMBEDDERS.map((e) => [e.id, e.local ? e.name : `${e.name} — 서버 필요`]))));
-      } else controls.appendChild(box('설정', combo(api, 'embedder', '임베더 (Embedder)', EMBEDDERS.map((e) => [e.id, e.local ? e.name : `${e.name} — 서버 필요`]))));
-      const e = EMBEDDERS.find((x) => x.id === api.settings.embedder);
-      controls.appendChild(note(e?.description ?? ''));
-      controls.appendChild(note('임베딩: 비정형 데이터(이미지)에서 특징을 뽑아 숫자 벡터로 만드는 것. SqueezeNet은 이미지마다 1000개의 특징(n0~n999)을 만듭니다. 계산은 이 기기에서 하며, 한 번 계산한 이미지는 저장해 두었다가 다시 씁니다.'));
-      const v = api.view as { ok: number; computed: number; skipped: number } | null;
-      if (v) controls.appendChild(box('결과', h('div', { class: 'info-text' }, `임베딩 ${v.ok}개 (새로 계산 ${v.computed}개) · 건너뜀 ${v.skipped}개`)));
-      if (api.status === 'error') controls.appendChild(note(api.message, 'error'));
+        controls.appendChild(box('설정', el, embCombo));
+      } else controls.appendChild(box('설정', embCombo));
+      const e = EMBEDDERS.find((x) => x.id === api.settings.embedder) ?? EMBEDDERS[1];
+      controls.appendChild(note(e.description));
+      if (!e.local) {
+        const consent = h('input', { type: 'checkbox', checked: api.settings.consent });
+        consent.addEventListener('change', () => api.update({ consent: consent.checked }));
+        const url = h('input', { type: 'url', value: api.settings.serverUrl, placeholder: ORANGE_EMBEDDING_SERVER });
+        url.addEventListener('change', () => api.update({ serverUrl: url.value.trim() }));
+        controls.appendChild(box('임베딩 서버',
+          note(`${e.name}은(는) Orange와 똑같이 이미지를 ${e.size}×${e.size}로 줄인 JPEG를 Orange 임베딩 서버(${ORANGE_EMBEDDING_SERVER}, 류블랴나 대학교 바이오랩)로 보내 계산합니다. 인터넷이 필요하며, 개인정보가 담긴 사진(얼굴 등)은 보내기 전에 확인하세요.`, api.settings.consent ? 'info' : 'warn'),
+          h('label', { class: 'ctl-check' }, consent, h('span', null, '이미지를 임베딩 서버로 보내는 데 동의합니다')),
+          h('details', null, h('summary', { class: 'small muted' }, '고급: 다른 서버 주소'), url,
+            note('비워 두면 이 앱 주소의 /embed-api/(프록시) → Orange 서버 순서로 연결합니다.'))));
+      } else {
+        controls.appendChild(note('SqueezeNet은 이 기기에서 계산하므로 인터넷이 필요 없고 이미지가 밖으로 나가지 않습니다.'));
+      }
+      controls.appendChild(note('임베딩: 비정형 데이터(이미지)에서 특징을 뽑아 숫자 벡터로 만드는 것. 모델마다 특징 개수가 다릅니다(Inception v3 2048개, SqueezeNet 1000개 등). 한 번 계산한 이미지는 저장해 두었다가 다시 씁니다.'));
+      const v = api.view as { ok: number; computed: number; skipped: number; dim: number; endpoint: string } | null;
+      if (v) controls.appendChild(box('결과', h('div', { class: 'info-text' }, `임베딩 ${v.ok}개 · 특징 ${v.dim}개 (새로 계산 ${v.computed}개) · 건너뜀 ${v.skipped}개`),
+        v.endpoint ? h('div', { class: 'info-text small' }, `서버: ${v.endpoint}`) : null));
+      if (api.message && api.status !== 'done') controls.appendChild(note(api.message, api.status === 'error' ? 'error' : api.status === 'waiting' ? 'info' : 'warn'));
     },
   });
 }

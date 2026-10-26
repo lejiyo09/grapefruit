@@ -10,7 +10,15 @@ import * as db from '../../storage/db';
 
 export interface ImageItem { path: string; name: string; category: string; size: number; width: number; height: number }
 export interface ImageSet { key: string; folder: string; created: string; items: ImageItem[]; skipped: string[] }
-export interface ImageRecord { preview: Blob; px: Uint8Array; width: number; height: number; emb?: Record<string, Float32Array> }
+export interface ImageRecord {
+  preview: Blob;
+  px: Uint8Array;
+  width: number;
+  height: number;
+  /** 서버 임베더용: 입력 크기(299, 256, 224, 64)별로 원본을 줄인 JPEG */
+  jpeg?: Record<number, Blob>;
+  emb?: Record<string, Float32Array>;
+}
 
 export const REF_PREFIX = 'img://';
 export const refOf = (setKey: string, path: string) => `${REF_PREFIX}${setKey}/${path}`;
